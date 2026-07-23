@@ -118,7 +118,7 @@ canvas{display:none;}
 
 <script>
 // ---------- storage (localStorage, fully offline) ----------
-const LS_KEYS = { jobs: 'bsm_jobs', expenses: 'bsm_expenses', settings: 'bsm_settings' };
+const LS_KEYS = { jobs: 'bsm_jobs', expenses: 'bsm_expenses', settings: 'bsm_settings', invoiceBg: 'bsm_invoice_bg' };
 function loadLS(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
 function saveLS(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; } }
 
@@ -183,7 +183,7 @@ let state = {
   jobs: loadLS(LS_KEYS.jobs, []),
   expenses: loadLS(LS_KEYS.expenses, []),
   settings: Object.assign({
-    appTitle: "Bridal Studio Manager", themeColor: "#B08968",
+    appTitle: "Invoice Manager", themeColor: "#B08968",
     headingFont: "Playfair Display", bodyFont: "Inter",
     bgColor: "#FBF8F3", surfaceColor: "#FFFFFF", uiTextColor: "#2E2A24",
     businessName:"", artistName:"", currencySymbol:"£", paymentDetails:"", accentHex:"#B08968",
@@ -200,10 +200,14 @@ let state = {
 };
 if(!state.settings.invoicePos) state.settings.invoicePos = JSON.parse(JSON.stringify(DEFAULT_INVOICE_POS));
 else state.settings.invoicePos = Object.assign(JSON.parse(JSON.stringify(DEFAULT_INVOICE_POS)), state.settings.invoicePos);
+// the invoice background image is stored in its own storage slot, separate from the rest of
+// settings, so a large image can never block ordinary settings saves (like the invoice font)
+// from succeeding due to browser storage limits.
+state.settings.invoiceBg = loadLS(LS_KEYS.invoiceBg, null);
 // migrate legacy single T&C text into templates list (one-time)
 if((!state.settings.tcTemplates || state.settings.tcTemplates.length===0) && state.settings.termsAndConditions){
   state.settings.tcTemplates = [{ id: 'tpl_'+Date.now(), name: 'Default Terms', text: state.settings.termsAndConditions }];
-  saveLS(LS_KEYS.settings, state.settings);
+  saveLS(LS_KEYS.settings, settingsWithoutBg());
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -269,9 +273,14 @@ function paymentEvents(j){
   return events;
 }
 
-function persistJobs(){ saveLS(LS_KEYS.jobs, state.jobs); scheduleDriveSave(); }
-function persistExpenses(){ saveLS(LS_KEYS.expenses, state.expenses); scheduleDriveSave(); }
-function persistSettings(){ saveLS(LS_KEYS.settings, state.settings); scheduleDriveSave(); }
+function settingsWithoutBg(){
+  const { invoiceBg, ...rest } = state.settings;
+  return rest;
+}
+function persistJobs(){ const ok = saveLS(LS_KEYS.jobs, state.jobs); scheduleDriveSave(); return ok; }
+function persistExpenses(){ const ok = saveLS(LS_KEYS.expenses, state.expenses); scheduleDriveSave(); return ok; }
+function persistSettings(){ const ok = saveLS(LS_KEYS.settings, settingsWithoutBg()); scheduleDriveSave(); return ok; }
+function persistInvoiceBg(){ return saveLS(LS_KEYS.invoiceBg, state.settings.invoiceBg || null); }
 
 function showErr(msg){
   const el = document.getElementById('saveErr');
@@ -423,7 +432,8 @@ async function loadFromDrive(){
       if(data.jobs) state.jobs = data.jobs;
       if(data.expenses) state.expenses = data.expenses;
       if(data.settings) state.settings = Object.assign({}, state.settings, data.settings);
-      saveLS(LS_KEYS.jobs, state.jobs); saveLS(LS_KEYS.expenses, state.expenses); saveLS(LS_KEYS.settings, state.settings);
+      saveLS(LS_KEYS.jobs, state.jobs); saveLS(LS_KEYS.expenses, state.expenses);
+      saveLS(LS_KEYS.settings, settingsWithoutBg()); saveLS(LS_KEYS.invoiceBg, state.settings.invoiceBg || null);
       setSyncStatus('ready', 'Synced ' + new Date().toLocaleTimeString('en-GB').slice(0,5));
       render();
     } else {
@@ -464,7 +474,7 @@ const NAV_ITEMS = [
 ];
 function renderNav(){
   applyTheme();
-  document.getElementById('brandName').textContent = state.settings.appTitle || 'Bridal Studio Manager';
+  document.getElementById('brandName').textContent = state.settings.appTitle || 'Invoice Manager';
   const nav = document.getElementById('nav');
   nav.innerHTML = NAV_ITEMS.map(it => `<button data-tab="${it.id}" class="${state.tab===it.id?'active':''}">${it.label}</button>`).join('');
   nav.querySelectorAll('button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; render(); });
@@ -677,7 +687,7 @@ function renderSettings(){
   <div class="card" style="margin-bottom:16px;">
     <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Appearance</div>
     <p style="font-size:13px;color:var(--textMuted);margin-top:0;margin-bottom:14px;line-height:1.6;">Customize the app title, fonts, and colors to match your style. Changes apply across the whole interface.</p>
-    <label class="field"><span class="field-label">App Title</span><input id="setAppTitle" value="${esc(s.appTitle)}" placeholder="e.g. Bridal Studio Manager"></label>
+    <label class="field"><span class="field-label">App Title</span><input id="setAppTitle" value="${esc(s.appTitle)}" placeholder="e.g. Invoice Manager"></label>
     <div style="display:flex;gap:14px;">
       <div style="flex:1;"><label class="field"><span class="field-label">Heading Font</span><select id="setHeadingFont">
         ${["Playfair Display","Cormorant Garamond","EB Garamond","Montserrat","Poppins","Jost","Inter","IBM Plex Mono"].map(f=>`<option value="${f}" ${s.headingFont===f?'selected':''}>${f}</option>`).join('')}
@@ -1431,7 +1441,7 @@ function bindTabEvents(){
   if(state.tab==='settings'){
     const appBtn = document.getElementById('saveAppearanceBtn');
     if(appBtn) appBtn.onclick = ()=>{
-      state.settings.appTitle = document.getElementById('setAppTitle').value.trim() || 'Bridal Studio Manager';
+      state.settings.appTitle = document.getElementById('setAppTitle').value.trim() || 'Invoice Manager';
       state.settings.headingFont = document.getElementById('setHeadingFont').value;
       state.settings.bodyFont = document.getElementById('setBodyFont').value;
       state.settings.themeColor = document.getElementById('setThemeColor').value;
@@ -1471,7 +1481,8 @@ function bindTabEvents(){
       const reader = new FileReader();
       reader.onload = ()=>{
         state.settings.invoiceBg = reader.result;
-        const ok = persistSettings();
+        const ok = persistInvoiceBg();
+        scheduleDriveSave();
         showErr(ok===false ? 'Image save failed (file may be too large) — please try a smaller image' : '');
         render();
       };
@@ -1480,7 +1491,7 @@ function bindTabEvents(){
     const calBtn = document.getElementById('calibrateBtn');
     if(calBtn) calBtn.onclick = openCalibrationModal;
     const rmBtn = document.getElementById('removeBgBtn');
-    if(rmBtn) rmBtn.onclick = ()=>{ state.settings.invoiceBg = null; persistSettings(); render(); };
+    if(rmBtn) rmBtn.onclick = ()=>{ state.settings.invoiceBg = null; persistInvoiceBg(); scheduleDriveSave(); render(); };
     const gBtn = document.getElementById('saveGClientBtn');
     if(gBtn) gBtn.onclick = ()=>{
       state.settings.googleClientId = document.getElementById('setGClientId').value.trim();
