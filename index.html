@@ -188,7 +188,7 @@ let state = {
     bgColor: "#FBF8F3", surfaceColor: "#FFFFFF", uiTextColor: "#2E2A24",
     businessName:"", artistName:"", currencySymbol:"£", paymentDetails:"", accentHex:"#B08968",
     invoiceBg: null, invoicePos: JSON.parse(JSON.stringify(DEFAULT_INVOICE_POS)),
-    invoiceFontSize: 30, invoiceTextColor: "#1a1a1a", invoiceFontFamily: "Inter",
+    invoiceFontSize: 30, invoiceTextColor: "#1a1a1a", invoiceFontFamily: "Jost",
     termsAndConditions: "", invoiceTcFontSize: 15, invoiceTcMaxWidth: 1500,
     tcTemplates: [],
     googleClientId: "",
@@ -718,9 +718,6 @@ function renderSettings(){
       <div style="flex:1;"><label class="field"><span class="field-label">Invoice Accent Color (Hex)</span><input id="setAccent" value="${esc(s.accentHex)}"></label></div>
     </div>
     <label class="field"><span class="field-label">Payment Details / Thank-you Note (shown at the bottom of the invoice)</span><textarea id="setPay">${esc(s.paymentDetails)}</textarea></label>
-    <label class="field"><span class="field-label">Invoice Font</span><select id="setFontFamily">
-      ${["Inter","Playfair Display","Cormorant Garamond","EB Garamond","Montserrat","Poppins","Jost","IBM Plex Mono"].map(f=>`<option value="${f}" ${s.invoiceFontFamily===f?'selected':''}>${f}${f==='Jost'?' (closest match to Futura)':f==='Poppins'?' (geometric, Futura-like)':''}</option>`).join('')}
-    </select></label>
     <button class="btn" id="saveSetBtn">✓ Save Settings</button>
   </div>
   <div class="card" style="margin-bottom:16px;">
@@ -1089,7 +1086,7 @@ function drawInvoiceOverlay(ctx, job, opts){
   const pos = state.settings.invoicePos || DEFAULT_INVOICE_POS;
   const fs = state.settings.invoiceFontSize || 30;
   const color = state.settings.invoiceTextColor || '#1a1a1a';
-  const fam = state.settings.invoiceFontFamily || 'Inter';
+  const fam = 'Jost';
   ctx.fillStyle = color;
   ctx.textAlign = 'left';
   ctx.font = `500 ${fs}px '${fam}'`;
@@ -1468,7 +1465,6 @@ function bindTabEvents(){
       state.settings.currencySymbol = document.getElementById('setSym').value;
       state.settings.accentHex = document.getElementById('setAccent').value;
       state.settings.paymentDetails = document.getElementById('setPay').value;
-      state.settings.invoiceFontFamily = document.getElementById('setFontFamily').value;
       const ok = persistSettings();
       showErr(ok===false ? 'Save failed, please try again' : '');
       render();
